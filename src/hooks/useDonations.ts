@@ -5,6 +5,7 @@ export interface Donation {
   fanName: string;
   amount: number;
   timestamp: Date;
+  donationCount: number; // Track how many times this person has donated
 }
 
 const STORAGE_KEY = 'jaiyaxh-donations';
@@ -22,7 +23,8 @@ export const useDonations = () => {
         const parsed = JSON.parse(stored);
         const donationsWithDates = parsed.map((d: any) => ({
           ...d,
-          timestamp: new Date(d.timestamp)
+          timestamp: new Date(d.timestamp),
+          donationCount: d.donationCount || 1 // Backward compatibility
         }));
         setDonations(donationsWithDates);
       } catch (error) {
@@ -46,14 +48,39 @@ export const useDonations = () => {
   }, [donations, isGoalReached]);
 
   const addDonation = (fanName: string, amount: number) => {
-    const newDonation: Donation = {
-      id: crypto.randomUUID(),
-      fanName: fanName.trim(),
-      amount,
-      timestamp: new Date()
-    };
-    setDonations(prev => [newDonation, ...prev]);
-    return newDonation;
+    const trimmedName = fanName.trim().toLowerCase();
+    
+    setDonations(prev => {
+      // Check if user already exists (case-insensitive)
+      const existingDonation = prev.find(d => d.fanName.toLowerCase() === trimmedName);
+      
+      if (existingDonation) {
+        // Update existing donation
+        return prev.map(d => 
+          d.id === existingDonation.id 
+            ? { 
+                ...d, 
+                amount: d.amount + amount,
+                donationCount: d.donationCount + 1,
+                timestamp: new Date() // Update timestamp to latest donation
+              }
+            : d
+        );
+      } else {
+        // Create new donation
+        const newDonation: Donation = {
+          id: crypto.randomUUID(),
+          fanName: fanName.trim(),
+          amount,
+          timestamp: new Date(),
+          donationCount: 1
+        };
+        return [newDonation, ...prev];
+      }
+    });
+    
+    // Return the added amount for notification purposes
+    return { fanName: fanName.trim(), amount };
   };
 
   const updateDonation = (id: string, fanName: string, amount: number) => {
@@ -68,27 +95,49 @@ export const useDonations = () => {
 
   const bulkImport = (text: string) => {
     const lines = text.split('\n').filter(line => line.trim());
-    const newDonations: Donation[] = [];
+    let processedCount = 0;
     
-    for (const line of lines) {
-      const parts = line.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        const amount = parseInt(parts[parts.length - 1]);
-        const fanName = parts.slice(0, -1).join(' ');
-        
-        if (!isNaN(amount) && amount > 0 && fanName) {
-          newDonations.push({
-            id: crypto.randomUUID(),
-            fanName: fanName.trim(),
-            amount,
-            timestamp: new Date()
-          });
+    setDonations(prev => {
+      let updatedDonations = [...prev];
+      
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          const amount = parseInt(parts[parts.length - 1]);
+          const fanName = parts.slice(0, -1).join(' ');
+          
+          if (!isNaN(amount) && amount > 0 && fanName) {
+            const trimmedName = fanName.trim().toLowerCase();
+            const existingIndex = updatedDonations.findIndex(d => d.fanName.toLowerCase() === trimmedName);
+            
+            if (existingIndex >= 0) {
+              // Update existing donation
+              updatedDonations[existingIndex] = {
+                ...updatedDonations[existingIndex],
+                amount: updatedDonations[existingIndex].amount + amount,
+                donationCount: updatedDonations[existingIndex].donationCount + 1,
+                timestamp: new Date()
+              };
+            } else {
+              // Create new donation
+              const newDonation: Donation = {
+                id: crypto.randomUUID(),
+                fanName: fanName.trim(),
+                amount,
+                timestamp: new Date(),
+                donationCount: 1
+              };
+              updatedDonations.unshift(newDonation);
+            }
+            processedCount++;
+          }
         }
       }
-    }
+      
+      return updatedDonations;
+    });
     
-    setDonations(prev => [...newDonations, ...prev]);
-    return newDonations.length;
+    return processedCount;
   };
 
   const clearAllDonations = () => {

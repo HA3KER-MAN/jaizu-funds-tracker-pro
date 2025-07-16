@@ -30,11 +30,20 @@ const Index = () => {
   const { notifications, addNotification, removeNotification } = useNotifications();
 
   const handleAddDonation = (fanName: string, amount: number) => {
-    const donation = addDonation(fanName, amount);
-    addNotification(
-      `₹${amount.toLocaleString()} added from ${fanName}`, 
-      'success'
-    );
+    const result = addDonation(fanName, amount);
+    const existingDonation = donations.find(d => d.fanName.toLowerCase() === fanName.trim().toLowerCase());
+    
+    if (existingDonation) {
+      addNotification(
+        `₹${amount.toLocaleString()} added to ${result.fanName} (Total: ₹${(existingDonation.amount + amount).toLocaleString()})`, 
+        'success'
+      );
+    } else {
+      addNotification(
+        `₹${amount.toLocaleString()} added from ${result.fanName}`, 
+        'success'
+      );
+    }
   };
 
   const handleBulkImport = (text: string) => {

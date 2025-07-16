@@ -81,7 +81,14 @@ export const DonationList = ({ donations, onUpdate, onDelete }: DonationListProp
             ) : (
               <>
                 <div className="flex-1">
-                  <div className="font-medium">{donation.fanName}</div>
+                  <div className="font-medium flex items-center gap-2">
+                    {donation.fanName}
+                    {donation.donationCount > 1 && (
+                      <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+                        {donation.donationCount}x donations
+                      </span>
+                    )}
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {donation.timestamp.toLocaleDateString()} at {donation.timestamp.toLocaleTimeString()}
                   </div>
